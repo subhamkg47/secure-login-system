@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -6,7 +6,10 @@ from schemas.user import UserCreate, UserLogin
 from database.database import get_db
 from models.user import User
 from utils.security import hash_password, verify_password
-
+from utils.jwt_handler import (
+    create_access_token,
+    verify_access_token
+)
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"]
@@ -66,7 +69,29 @@ def login(
             detail="Invalid email or password"
         )
 
+    access_token = create_access_token(
+    data={"sub": existing_user.email}
+)
+
     return {
-        "message": "Login successful",
-        "email": existing_user.email
+    "access_token": access_token,
+    "token_type": "bearer"
+    }
+@router.get("/profile")
+def get_profile(
+    authorization: str = Header(...)
+):
+    token = authorization.replace("Bearer ", "")
+
+    payload = verify_access_token(token)
+
+    if payload is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
+
+    return {
+        "message": "Protected route accessed!",
+        "user": payload["sub"]
     }

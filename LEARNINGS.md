@@ -259,3 +259,122 @@ git push
 ## 📌 Summary
 
 Built a secure user authentication system with password hashing, login verification, duplicate email validation, and professional API error handling.
+
+---
+
+# Day 5 - JWT Authentication & Protected Routes
+
+## 🎯 Objective
+
+Implement JWT (JSON Web Token) authentication to securely identify logged-in users and protect private API routes.
+
+## 🧠 Concepts Learned
+
+### JWT (JSON Web Token)
+
+- JWT is a signed token used for authentication.
+- After successful login, the server generates a JWT instead of asking for the password again.
+- The client stores the JWT and sends it with future requests.
+- JWT contains three parts:
+  - Header
+  - Payload
+  - Signature
+
+### JWT Claims
+
+- `sub` (Subject) → Identifies the logged-in user.
+- `exp` (Expiration) → Specifies when the token expires.
+
+### JWT Security
+
+- Tokens are digitally signed using a `SECRET_KEY`.
+- The server verifies the signature before trusting the token.
+- If the token is modified or expired, authentication fails.
+- JWTs should have an expiration time to reduce security risks if they are stolen.
+
+### Protected Routes
+
+- Public routes:
+  - `/auth/register`
+  - `/auth/login`
+- Protected route:
+  - `/auth/profile`
+
+- Protected routes verify the JWT before returning data.
+
+## 🔄 Authentication Flow
+
+```text
+User Login
+    │
+    ▼
+Verify Email & Password
+    │
+    ▼
+Generate JWT
+    │
+    ▼
+Send JWT to Client
+    │
+    ▼
+Client Stores JWT
+    │
+    ▼
+Client Sends JWT
+    │
+    ▼
+Server Verifies JWT
+    │
+    ▼
+Protected Route Access
+```
+
+## 💻 Commands Used
+
+```bash
+pip install "python-jose[cryptography]"
+
+pip freeze > requirements.txt
+
+git add .
+git commit -m "Implement JWT authentication and protected routes"
+git push
+```
+
+## 📁 Files Created
+
+- utils/jwt_handler.py
+
+## 📁 Files Updated
+
+- routers/auth.py
+
+## 🔑 Functions Implemented
+
+- `create_access_token()`
+- `verify_access_token()`
+
+## ❌ Mistakes I Made
+
+- Indentation errors caused `return outside function`.
+- Forgot that JWTs are sent through the `Authorization` header.
+- Swagger did not send the Authorization header correctly, but testing with `curl` confirmed the backend was working.
+
+## 💡 Interview Notes
+
+- JWT stands for JSON Web Token.
+- JWT is authentication, not encryption.
+- bcrypt is hashing, not encryption.
+- Authentication verifies who the user is.
+- Authorization determines what the user can access.
+- JWTs are usually sent in the `Authorization` header as:
+  ```
+  Authorization: Bearer <token>
+  ```
+- `SECRET_KEY` is used to digitally sign JWTs.
+- `HS256` is the signing algorithm used in this project.
+- Protected routes verify the JWT before allowing access.
+
+## 📌 Summary
+
+Built a complete JWT authentication system capable of generating JWTs after login, verifying JWTs, and protecting API routes using bearer tokens.
