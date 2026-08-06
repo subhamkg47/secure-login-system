@@ -275,7 +275,7 @@ Implement JWT (JSON Web Token) authentication to securely identify logged-in use
 - JWT is a signed token used for authentication.
 - After successful login, the server generates a JWT instead of asking for the password again.
 - The client stores the JWT and sends it with future requests.
-- JWT contains three parts:
+- JWT consists of three parts:
   - Header
   - Payload
   - Signature
@@ -290,7 +290,14 @@ Implement JWT (JSON Web Token) authentication to securely identify logged-in use
 - Tokens are digitally signed using a `SECRET_KEY`.
 - The server verifies the signature before trusting the token.
 - If the token is modified or expired, authentication fails.
-- JWTs should have an expiration time to reduce security risks if they are stolen.
+- JWTs should always have an expiration time to reduce security risks.
+
+### OAuth2 Integration
+
+- Replaced manual Authorization header parsing with FastAPI's `OAuth2PasswordBearer`.
+- Login endpoint now uses `OAuth2PasswordRequestForm`.
+- Swagger UI authenticates users using the built-in **Authorize** button.
+- Protected routes automatically receive the JWT using `Depends(oauth2_scheme)`.
 
 ### Protected Routes
 
@@ -320,7 +327,7 @@ Send JWT to Client
 Client Stores JWT
     │
     ▼
-Client Sends JWT
+Client Sends JWT in Authorization Header
     │
     ▼
 Server Verifies JWT
@@ -343,11 +350,11 @@ git push
 
 ## 📁 Files Created
 
-- utils/jwt_handler.py
+- `utils/jwt_handler.py`
 
 ## 📁 Files Updated
 
-- routers/auth.py
+- `routers/auth.py`
 
 ## 🔑 Functions Implemented
 
@@ -357,24 +364,53 @@ git push
 ## ❌ Mistakes I Made
 
 - Indentation errors caused `return outside function`.
-- Forgot that JWTs are sent through the `Authorization` header.
-- Swagger did not send the Authorization header correctly, but testing with `curl` confirmed the backend was working.
+- Accidentally created duplicate `@router.get("/profile")` decorators.
+- Initially implemented JWT authentication manually using `Header()`.
+- Learned how `OAuth2PasswordBearer` simplifies authentication and integrates with Swagger.
+- Used `curl` to verify the backend worked before debugging Swagger.
 
 ## 💡 Interview Notes
 
-- JWT stands for JSON Web Token.
-- JWT is authentication, not encryption.
-- bcrypt is hashing, not encryption.
-- Authentication verifies who the user is.
-- Authorization determines what the user can access.
-- JWTs are usually sent in the `Authorization` header as:
-  ```
-  Authorization: Bearer <token>
-  ```
+- JWT stands for **JSON Web Token**.
+- JWT is **signed**, not encrypted.
+- bcrypt performs **hashing**, not encryption.
+- Authentication verifies **who the user is**.
+- Authorization determines **what the user can access**.
+- JWTs are usually sent in the HTTP `Authorization` header:
+
+```text
+Authorization: Bearer <token>
+```
+
 - `SECRET_KEY` is used to digitally sign JWTs.
 - `HS256` is the signing algorithm used in this project.
+- `OAuth2PasswordBearer` automatically extracts the JWT from the Authorization header.
+- `OAuth2PasswordRequestForm` sends login credentials as form data.
 - Protected routes verify the JWT before allowing access.
+
+## ⭐ Key Takeaways
+
+- Never store plain-text passwords.
+- Always hash passwords before storing them.
+- JWT allows users to stay logged in without sending passwords repeatedly.
+- Protected routes should always verify the JWT before returning data.
+- Read Python tracebacks carefully—they usually point to the actual problem.
+- Test APIs with both Swagger and `curl` to isolate frontend and backend issues.
 
 ## 📌 Summary
 
-Built a complete JWT authentication system capable of generating JWTs after login, verifying JWTs, and protecting API routes using bearer tokens.
+Built a production-style authentication system using FastAPI, PostgreSQL, SQLAlchemy, bcrypt, JWT, and OAuth2PasswordBearer. Users can register, log in securely, receive a JWT, and access protected routes through Swagger or any API client.
+
+## Reflection
+
+### What did I build today?
+
+A complete JWT authentication system with secure login, JWT generation, JWT verification, OAuth2 integration, and protected API routes.
+
+### What was the hardest bug today?
+
+Fixing Python indentation errors and understanding why Swagger wasn't sending the Authorization header before migrating to OAuth2PasswordBearer.
+
+### If someone asked me to explain today's work without looking at the code, could I?
+
+Yes. I understand how a user logs in, how a JWT is generated, how it is verified, and how protected routes authenticate users using bearer tokens.

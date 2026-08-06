@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
-from schemas.user import UserCreate, UserLogin
+from schemas.user import UserCreate
+from fastapi.security import OAuth2PasswordRequestForm
 from database.database import get_db
 from models.user import User
 from utils.security import hash_password, verify_password
@@ -13,6 +15,9 @@ from utils.jwt_handler import (
 router = APIRouter(
     prefix="/auth",
     tags=["Authentication"]
+)
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/auth/login"
 )
 
 
@@ -47,11 +52,11 @@ def register(
 
 @router.post("/login")
 def login(
-    user: UserLogin,
+    form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
     existing_user = db.execute(
-        select(User).where(User.email == user.email)
+        select(User).where(User.email == form_data.username)
     ).scalar_one_or_none()
 
     if not existing_user:
@@ -61,7 +66,7 @@ def login(
         )
 
     if not verify_password(
-        user.password,
+        form_data.password,
         existing_user.hashed_password
     ):
         raise HTTPException(
@@ -77,12 +82,11 @@ def login(
     "access_token": access_token,
     "token_type": "bearer"
     }
+
 @router.get("/profile")
 def get_profile(
-    authorization: str = Header(...)
+    token: str = Depends(oauth2_scheme)
 ):
-    token = authorization.replace("Bearer ", "")
-
     payload = verify_access_token(token)
 
     if payload is None:
