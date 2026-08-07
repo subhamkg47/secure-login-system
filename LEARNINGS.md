@@ -414,3 +414,150 @@ Fixing Python indentation errors and understanding why Swagger wasn't sending th
 ### If someone asked me to explain today's work without looking at the code, could I?
 
 Yes. I understand how a user logs in, how a JWT is generated, how it is verified, and how protected routes authenticate users using bearer tokens.
+
+---
+
+# Day 6 - Dependency Injection & Reusable Authentication
+
+## 🎯 Objective
+
+Refactor the authentication system by moving JWT verification into a reusable dependency using FastAPI's Dependency Injection (`Depends`).
+
+## 🧠 Concepts Learned
+
+### Dependency Injection (Depends)
+
+- `Depends()` is FastAPI's Dependency Injection system.
+- It allows reusable logic to be written once and injected into multiple endpoints.
+- It reduces code duplication and keeps the code clean and maintainable.
+
+### Why Dependency Injection?
+
+Without `Depends()`, every protected endpoint would have to:
+
+- Read the JWT
+- Verify the JWT
+- Handle invalid tokens
+- Return the authenticated user
+
+This causes duplicate code and makes future updates difficult.
+
+With `Depends()`, all authentication logic is written once and reused everywhere.
+
+### Separation of Concerns
+
+Each function should have only one responsibility.
+
+Before refactoring:
+
+- `/profile` was responsible for:
+  - Reading the JWT
+  - Verifying the JWT
+  - Handling authentication errors
+  - Returning profile data
+
+After refactoring:
+
+- `get_current_user()`
+  - Reads the JWT
+  - Verifies the JWT
+  - Returns the authenticated user
+
+- `/profile`
+  - Only returns profile information
+
+This makes the project much cleaner and easier to maintain.
+
+### Reusable Dependencies
+
+Created a new folder:
+
+```
+dependencies/
+```
+
+Created:
+
+```
+dependencies/auth.py
+```
+
+This file now contains reusable authentication logic that can be shared across all routers.
+
+## 🔄 Authentication Flow
+
+```text
+Client Request
+      │
+      ▼
+Authorization Header
+      │
+      ▼
+OAuth2PasswordBearer
+      │
+      ▼
+Depends(get_current_user)
+      │
+      ▼
+Verify JWT
+      │
+      ▼
+Return Authenticated User
+      │
+      ▼
+Protected Endpoint
+```
+
+## 📁 Files Created
+
+- `dependencies/auth.py`
+
+## 📁 Files Updated
+
+- `routers/auth.py`
+
+## 🔑 Functions Implemented
+
+- `get_current_user()`
+
+## ❌ Mistakes I Made
+
+- Forgot why creating another `oauth2_scheme` in the dependencies folder was useful.
+- Initially thought authentication should remain inside every endpoint.
+- Learned that reusable dependencies make debugging and future updates much easier.
+
+## 💡 Interview Notes
+
+- `Depends()` is FastAPI's Dependency Injection system.
+- Dependency Injection helps reduce code duplication.
+- Shared logic should be written once and reused.
+- `get_current_user()` is responsible only for authentication.
+- Protected endpoints should focus only on business logic.
+- Separation of Concerns makes applications easier to maintain.
+- Reusable dependencies are a common pattern in production backend applications.
+
+## ⭐ Key Takeaways
+
+- Never repeat the same authentication code in multiple endpoints.
+- Centralizing authentication makes future changes easier.
+- Every function should have a single responsibility.
+- Clean architecture is just as important as writing working code.
+- Good backend code is modular, reusable, and easy to maintain.
+
+## 📌 Summary
+
+Refactored the authentication system by introducing Dependency Injection with `Depends()`. Authentication is now centralized in `get_current_user()`, allowing every protected endpoint to reuse the same logic while keeping business logic clean and maintainable.
+
+## Reflection
+
+### What did I build today?
+
+A reusable authentication dependency using FastAPI's `Depends()` that verifies JWTs and can be shared by all protected routes.
+
+### What was the biggest lesson today?
+
+I learned that writing code that works is only the first step. Professional backend development is about writing reusable, maintainable, and well-organized code.
+
+### If someone asked me to explain today's work without looking at the code, could I?
+
+Yes. I understand why Dependency Injection exists, how `Depends()` works, why `get_current_user()` is reusable, and how it keeps authentication separate from business logic.

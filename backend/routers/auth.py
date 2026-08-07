@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
+from dependencies.auth import get_current_user
 from schemas.user import UserCreate
 from fastapi.security import OAuth2PasswordRequestForm
 from database.database import get_db
@@ -85,17 +86,9 @@ def login(
 
 @router.get("/profile")
 def get_profile(
-    token: str = Depends(oauth2_scheme)
+    current_user = Depends(get_current_user)
 ):
-    payload = verify_access_token(token)
-
-    if payload is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or expired token"
-        )
-
     return {
         "message": "Protected route accessed!",
-        "user": payload["sub"]
+        "user": current_user["sub"]
     }
