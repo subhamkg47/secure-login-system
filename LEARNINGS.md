@@ -561,3 +561,87 @@ I learned that writing code that works is only the first step. Professional back
 ### If someone asked me to explain today's work without looking at the code, could I?
 
 Yes. I understand why Dependency Injection exists, how `Depends()` works, why `get_current_user()` is reusable, and how it keeps authentication separate from business logic.
+
+---
+
+# Day 7 - Fetch Current User from Database
+
+## 🎯 Objective
+
+Improve the authentication system by fetching the authenticated user from PostgreSQL instead of returning only the JWT payload.
+
+## 🧠 Concepts Learned
+
+### Why Fetch the User from the Database?
+
+- JWT is only used to identify the user.
+- After verifying the JWT, extract the user's email (`sub` claim).
+- Query PostgreSQL to retrieve the latest user information.
+- Return the complete `User` object instead of the JWT payload.
+
+### Why Not Trust Only the JWT?
+
+- JWT is a snapshot created at login.
+- User information may change after the token is issued.
+- Example:
+  - User role changes.
+  - User account is deleted.
+  - User account is deactivated.
+- Fetching the user from the database always provides the latest information.
+
+### Database Authentication Flow
+
+```text
+Client Request
+      │
+      ▼
+Receive JWT
+      │
+      ▼
+Verify JWT
+      │
+      ▼
+Extract Email (sub)
+      │
+      ▼
+Search PostgreSQL
+      │
+      ▼
+Return User Object
+      │
+      ▼
+Protected Endpoint
+```
+
+## 📁 Files Updated
+
+- `dependencies/auth.py`
+- `routers/auth.py`
+
+## 🔑 Changes Made
+
+- Added database session (`Depends(get_db)`) inside `get_current_user()`.
+- Extracted email from the JWT payload.
+- Queried PostgreSQL using SQLAlchemy.
+- Checked whether the user still exists.
+- Returned the complete `User` object instead of the JWT payload.
+- Updated `/profile` to use `current_user.email`.
+
+## 💡 Interview Notes
+
+- JWT should identify the user, not store all user information.
+- Production applications usually verify the user against the database after validating the JWT.
+- Returning a database model is cleaner than returning the JWT payload.
+- `Depends(get_db)` injects a reusable database session.
+- `Depends(get_current_user)` injects the authenticated user into protected endpoints.
+
+## ⭐ Key Takeaways
+
+- Always use the JWT to identify the user, then fetch the latest data from the database.
+- Authentication logic should remain centralized in one dependency.
+- Protected endpoints should focus only on business logic.
+- Returning the authenticated `User` object makes future development easier.
+
+## 📌 Summary
+
+Refactored the authentication system to return the authenticated user directly from PostgreSQL after JWT verification. The project now follows a more production-ready authentication architecture by separating authentication from business logic and always using the latest user information from the database.

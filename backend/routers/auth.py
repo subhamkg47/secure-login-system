@@ -86,9 +86,9 @@ def login(
 
 @router.get("/profile")
 def get_profile(
-    current_user = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     return {
         "message": "Protected route accessed!",
-        "user": current_user["sub"]
+        "user": current_user.email
     }
