@@ -9,6 +9,8 @@ from models.user import User
 
 from utils.jwt_handler import verify_access_token
 
+from services.token_blacklist import is_blacklisted
+
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login"
 )
@@ -17,6 +19,12 @@ def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
+    if is_blacklisted(token):
+        raise HTTPException(
+            status_code=401,
+            detail="Token has been blacklisted"
+        )
+
     payload = verify_access_token(token)
 
     if payload is None:

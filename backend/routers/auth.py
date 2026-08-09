@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
+from services.token_blacklist import blacklist_token
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -91,4 +92,14 @@ def get_profile(
     return {
         "message": "Protected route accessed!",
         "user": current_user.email
+    }
+
+@router.post("/logout")
+def logout(
+    token: str = Depends(oauth2_scheme)
+):
+    blacklist_token(token)
+
+    return {
+        "message": "Logged out successfully"
     }

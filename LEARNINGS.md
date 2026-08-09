@@ -645,3 +645,88 @@ Protected Endpoint
 ## 📌 Summary
 
 Refactored the authentication system to return the authenticated user directly from PostgreSQL after JWT verification. The project now follows a more production-ready authentication architecture by separating authentication from business logic and always using the latest user information from the database.
+
+---
+
+# Day 8 - Server-Side Logout with JWT Blacklisting
+
+## 🎯 Objective
+
+Implement secure server-side logout by invalidating JWT tokens after logout instead of only removing them from the client.
+
+## 🧠 Concepts Learned
+
+### Why Server-Side Logout?
+
+- JWTs are stateless, meaning the server does not automatically know if a user has logged out.
+- Simply deleting the JWT on the client is not secure because a copied token can still be used until it expires.
+- To solve this, revoked tokens are stored in a blacklist and rejected on future requests.
+
+### Token Blacklisting
+
+- Created an in-memory blacklist using a Python `set`.
+- Added helper functions:
+  - `blacklist_token()` – Adds a JWT to the blacklist.
+  - `is_blacklisted()` – Checks whether a JWT has been revoked.
+- Every protected request checks the blacklist before verifying the JWT.
+
+### Logout Flow
+
+```text
+User Logs In
+      │
+      ▼
+JWT Issued
+      │
+      ▼
+User Logs Out
+      │
+      ▼
+JWT Added to Blacklist
+      │
+      ▼
+Future Requests
+      │
+      ▼
+Token Found in Blacklist
+      │
+      ▼
+401 Unauthorized
+```
+
+## 📁 Files Created
+
+- `services/token_blacklist.py`
+
+## 📁 Files Updated
+
+- `dependencies/auth.py`
+- `routers/auth.py`
+
+## 🔑 Changes Made
+
+- Created an in-memory JWT blacklist.
+- Implemented `blacklist_token()` and `is_blacklisted()`.
+- Updated authentication dependency to reject revoked tokens before JWT verification.
+- Added `/auth/logout` endpoint.
+- Refactored logout to use `Depends(oauth2_scheme)` for consistent authentication.
+- Successfully tested server-side logout.
+
+## 💡 Interview Notes
+
+- JWT is stateless, so logout requires additional server-side logic.
+- A blacklist is one way to invalidate JWTs before they expire.
+- `set` is used because membership checks are much faster than a list.
+- Authentication credentials should be passed using the `Authorization` header.
+- Checking the blacklist before JWT verification avoids unnecessary processing.
+
+## ⭐ Key Takeaways
+
+- Server-side logout is more secure than deleting the token only on the client.
+- Authentication should remain consistent across all protected endpoints.
+- Revoked tokens should always be rejected before accessing protected resources.
+- Helper functions make authentication code cleaner and reusable.
+
+## 📌 Summary
+
+Implemented secure server-side logout using JWT blacklisting. Revoked tokens are now rejected across all protected routes, fulfilling the FOSSEE requirement for server-side session invalidation.
