@@ -3,6 +3,7 @@ from sqlalchemy import text
 
 from database.database import Base, engine
 from models.user import User
+from models.file import File
 from routers.auth import router as auth_router
 
 
