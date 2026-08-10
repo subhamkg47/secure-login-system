@@ -730,3 +730,92 @@ Token Found in Blacklist
 ## 📌 Summary
 
 Implemented secure server-side logout using JWT blacklisting. Revoked tokens are now rejected across all protected routes, fulfilling the FOSSEE requirement for server-side session invalidation.
+
+---
+
+# Day 9 - File Model & Database Relationships
+
+## 🎯 Objective
+
+Design the database structure for storing user files and establish a one-to-many relationship between users and files using SQLAlchemy.
+
+## 🧠 Concepts Learned
+
+### One-to-Many Relationship
+
+- A single user can own multiple files.
+- Each file belongs to exactly one user.
+- This relationship is implemented using a foreign key and SQLAlchemy relationships.
+
+### File Table Design
+
+The `files` table contains:
+
+- `id` – Unique identifier for each file.
+- `filename` – Name of the file displayed to the user.
+- `filepath` – Actual storage location of the file.
+- `user_id` – Foreign key that links the file to its owner.
+
+### Foreign Key
+
+- `ForeignKey("users.id")` creates a relationship between the `files` table and the `users` table.
+- It ensures every file belongs to a valid user.
+
+### SQLAlchemy Relationship
+
+- `relationship()` allows SQLAlchemy to navigate between related objects.
+- From a user:
+  ```python
+  user.files
+  ```
+  returns all files owned by that user.
+- From a file:
+  ```python
+  file.owner
+  ```
+  returns the user who owns the file.
+
+### Model Registration
+
+- SQLAlchemy only creates tables for models that are imported into the application.
+- Importing the `File` model in `main.py` registers it before running:
+  ```python
+  Base.metadata.create_all(bind=engine)
+  ```
+
+## 📁 Files Created
+
+- `models/file.py`
+
+## 📁 Files Updated
+
+- `models/user.py`
+- `main.py`
+
+## 🔑 Changes Made
+
+- Created the `File` model.
+- Added `filename`, `filepath`, and `user_id` columns.
+- Linked the `File` model to the `User` model using `ForeignKey`.
+- Implemented bidirectional relationships using `relationship()` and `back_populates`.
+- Registered the `File` model so SQLAlchemy could create the `files` table.
+- Verified that the `files` table was successfully created in PostgreSQL.
+
+## 💡 Interview Notes
+
+- A foreign key connects related tables in a relational database.
+- `relationship()` is an ORM feature that allows navigation between related objects.
+- One user can own many files, but each file belongs to only one user.
+- `filename` stores the display name, while `filepath` stores the actual file location.
+- Models must be imported before SQLAlchemy can create their database tables.
+
+## ⭐ Key Takeaways
+
+- Database relationships should be designed before building API endpoints.
+- Foreign keys maintain data integrity between related tables.
+- SQLAlchemy relationships simplify working with related data.
+- A well-designed database makes authorization and ownership checks much easier.
+
+## 📌 Summary
+
+Designed and implemented the database layer for the file management system by creating the `File` model, establishing a one-to-many relationship with the `User` model, and successfully creating the `files` table in PostgreSQL. This lays the foundation for implementing secure file access in the upcoming stages of the FOSSEE project.
