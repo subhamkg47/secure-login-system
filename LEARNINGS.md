@@ -819,3 +819,46 @@ The `files` table contains:
 ## 📌 Summary
 
 Designed and implemented the database layer for the file management system by creating the `File` model, establishing a one-to-many relationship with the `User` model, and successfully creating the `files` table in PostgreSQL. This lays the foundation for implementing secure file access in the upcoming stages of the FOSSEE project.
+
+
+---
+
+# Day 10 - Secure File Access & Authorization
+
+## 🎯 Objective
+
+Implement secure file access for authenticated users and ensure that users can only view and download files belonging to their own account.
+
+This directly addresses the FOSSEE requirements for:
+
+- User-specific file listing
+- Single-file access
+- File downloading
+- Cross-user data isolation
+
+---
+
+## 🧠 Concepts Learned
+
+### Authentication vs Authorization
+
+**Authentication** answers:
+
+> Who is the user?
+
+Our application determines this using the validated JWT.
+
+**Authorization** answers:
+
+> What is the authenticated user allowed to access?
+
+For files, the authenticated user's ID is compared with the file's `user_id`.
+
+---
+
+## 🔐 User Data Isolation
+
+The most important authorization rule is:
+
+```python
+File.user_id == current_user.id

@@ -5,6 +5,7 @@ from database.database import Base, engine
 from models.user import User
 from models.file import File
 from routers.auth import router as auth_router
+from routers import files
 
 
 app = FastAPI(
@@ -31,3 +32,4 @@ def test_database():
 
 
 app.include_router(auth_router)
+app.include_router(files.router)
