@@ -862,3 +862,261 @@ The most important authorization rule is:
 
 ```python
 File.user_id == current_user.id
+
+A user must never be able to access another user's file simply by changing the file_id.
+📂 File Ownership
+Every file belongs to a specific user through:
+user_id
+Therefore, file access must always consider both:
+file_id
++
+current_user.id
+rather than trusting the file_id alone.
+📥 Secure File Download
+The backend authenticates the user before allowing a file to be downloaded.
+The server checks that the requested file belongs to the authenticated user before returning the physical file.
+This prevents unauthorized users from accessing files belonging to another account.
+🔄 Secure File Access Flow
+Client
+   │
+   ▼
+JWT Token
+   │
+   ▼
+Authenticate User
+   │
+   ▼
+Get current_user
+   │
+   ▼
+Request File
+   │
+   ▼
+Find File
+   │
+   ▼
+Check File Ownership
+   │
+   ├── Not Owner → Reject Access
+   │
+   └── Owner → Allow Access
+                    │
+                    ▼
+                Return File
+📁 Files Created
+routers/files.py
+schemas/file.py
+seed_files.py
+📁 Files Updated
+main.py
+🔑 Changes Made
+Created file-related API routes.
+Added authenticated file listing.
+Added single-file access.
+Added file download functionality.
+Connected files with authenticated users.
+Implemented ownership-based authorization.
+Added sample files for testing.
+Tested file downloading through Swagger.
+❌ Mistakes I Made
+Initially misunderstood the difference between authentication and authorization.
+Had to understand why checking only file_id is insecure.
+Initially created sample PDF files that were only ASCII text.
+Learned how to create valid PDF files.
+Initially created an invalid ZIP file.
+Learned to verify file types using the file command.
+💡 Interview Notes
+Authentication identifies the user.
+Authorization determines what the user can access.
+Never trust an object ID supplied by the client by itself.
+Always verify resource ownership before returning protected data.
+File IDs should not be treated as proof of ownership.
+User data isolation is an important security requirement.
+⭐ Key Takeaways
+Authentication ≠ Authorization.
+Every protected resource needs an authorization check.
+current_user.id should be used when checking ownership.
+File ownership must be enforced on the backend.
+User data isolation prevents one user from accessing another user's resources.
+📌 Summary
+Implemented secure, user-specific file access using JWT authentication and ownership-based authorization. Users can access their own files while unauthorized access to another user's files is prevented.
+---
+
+# Day 11 - File Storage & Secure File Downloads
+
+## 🎯 Objective
+
+Complete the file management functionality by storing sample files, implementing secure file downloads, and verifying that users can only access files they own.
+
+## 🧠 Concepts Learned
+
+### 📂 File Storage
+
+- File metadata is stored in PostgreSQL.
+- The actual file is stored inside the `uploads/` directory.
+- The database connects the file to its owner using `user_id`.
+
+### 📥 File Download
+
+FastAPI's `FileResponse` is used to return files to the client.
+
+Before returning a file, the backend checks:
+
+1. Whether the file exists in the database.
+2. Whether the authenticated user owns the file.
+3. Whether the actual file exists on the server.
+
+### 🔐 Authorization
+
+The important ownership check is:
+
+```python
+if file.user_id != current_user.id:
+    raise HTTPException(
+        status_code=403,
+        detail="You do not have permission to access this file"
+    )
+
+
+    This prevents one user from accessing another user's files.
+🧪 Testing
+Tested:
+Listing authenticated user's files
+Accessing a specific file
+Downloading a file
+Accessing a non-existent file
+Accessing another user's file
+Expected responses:
+200 → Authorized access
+403 → User does not own the file
+404 → File does not exist
+💻 Commands Learned
+mkdir -p uploads
+file backend/uploads/*
+du -h backend/uploads/*
+❌ Mistakes I Made
+Initially created sample PDFs as plain text files.
+Learned that a .pdf extension does not make a file a real PDF.
+Initially created an invalid ZIP file.
+Learned to verify the actual file format before testing downloads.
+💡 Interview Notes
+Authentication determines who the user is.
+Authorization determines what the user can access.
+Never trust a file_id alone to authorize access.
+Always check resource ownership before returning protected data.
+FileResponse is used to send files from a FastAPI backend.
+⭐ Key Takeaways
+Every protected resource needs an authorization check.
+File ownership should be enforced on the backend.
+Database metadata and physical file storage are separate.
+Always verify that stored files actually match their expected format.
+📌 Summary
+Implemented and tested secure file access and downloading. The backend now ensures that authenticated users can only access files belonging to their own account.
+
+
+---
+
+# Day 12 - Login Security & Account Lockout
+
+## 🎯 Objective
+
+Improve the authentication system by protecting user accounts against repeated failed login attempts and learn how to safely update the PostgreSQL database using Alembic migrations.
+
+## 🧠 Concepts Learned
+
+### 🔒 Brute-Force Protection
+
+Repeated failed login attempts can be used to guess a user's password.
+
+A temporary account lockout helps reduce this risk.
+
+Our rule:
+
+```text
+5 failed login attempts
+        ↓
+15-minute account lockout
+
+📊 Tracking Login Attempts
+Added two fields to the User model:
+failed_attempts = Column(Integer, default=0, nullable=False)
+locked_until = Column(DateTime, nullable=True)
+failed_attempts stores the number of failed login attempts.
+locked_until stores when the temporary lock expires.
+⏳ Account Lockout
+Before allowing login, the system checks whether the account is currently locked.
+After 5 failed attempts, the account is locked for 15 minutes.
+Even the correct password cannot bypass an active lockout.
+🔄 Reset After Successful Login
+After a successful login:
+existing_user.failed_attempts = 0
+existing_user.locked_until = None
+This resets the authentication security state.
+🗃️ Alembic Database Migrations
+Changing a SQLAlchemy model does not automatically change an existing PostgreSQL database.
+Alembic is used to safely manage database schema changes.
+💻 Commands Used
+alembic init alembic
+alembic revision --autogenerate -m "Add login lockout fields"
+alembic upgrade head
+🔄 Migration Flow
+SQLAlchemy Model
+       ↓
+Alembic Autogenerate
+       ↓
+Migration File
+       ↓
+alembic upgrade head
+       ↓
+PostgreSQL Schema Updated
+🔑 Alembic Metadata
+Configured Alembic to use:
+target_metadata = Base.metadata
+This allows Alembic to compare the SQLAlchemy models with the existing database schema.
+🧪 Testing
+Tested the complete authentication security flow:
+Wrong password
+      ↓
+Failed attempts increase
+      ↓
+5 failed attempts
+      ↓
+15-minute lockout
+      ↓
+Correct password while locked
+      ↓
+401 Unauthorized
+      ↓
+Lock expires
+      ↓
+Correct password
+      ↓
+200 OK
+      ↓
+failed_attempts = 0
+locked_until = None
+The final database verification showed:
+Failed attempts: 0
+Locked until: None
+❌ Mistakes I Made
+Initially expected changes to the SQLAlchemy model to automatically appear in PostgreSQL.
+Encountered an SQLAlchemy relationship error because the File model was not imported before querying User.
+Accidentally typed db.clos() instead of db.close().
+Tried to use variables from a previous Python REPL session.
+Learned why the correct password is rejected while the account is still locked.
+💡 Interview Notes
+Account lockout helps protect against brute-force attacks.
+Authentication state should be maintained server-side.
+locked_until stores the exact expiration time of a temporary lock.
+Alembic is used to manage SQLAlchemy database migrations.
+--autogenerate detects differences between models and the database schema.
+upgrade head applies pending migrations.
+⭐ Key Takeaways
+Changing a SQLAlchemy model does not automatically change PostgreSQL.
+Database schema changes should be handled through migrations.
+Failed login attempts should be tracked securely on the server.
+Temporary lockouts can reduce brute-force attacks.
+Successful authentication should reset failed-attempt state.
+Security features should be tested through both the API and database.
+📌 Summary
+Implemented a temporary account lockout system that locks users for 15 minutes after 5 failed login attempts. Added the required database fields, created and applied an Alembic migration, and successfully tested the complete lockout and reset lifecycle.

@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy.orm import relationship
 
 from database.database import Base
+from models.file import File
 
 class User(Base):
     __tablename__ = "users"
@@ -15,3 +16,5 @@ class User(Base):
     "File",
     back_populates="owner"
 )
+    failed_attempts = Column(Integer, default=0, nullable=False)
+    locked_until = Column(DateTime, nullable=True)

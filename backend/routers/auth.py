@@ -4,6 +4,8 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
+from datetime import datetime, timedelta
+
 from dependencies.auth import get_current_user
 from schemas.user import UserCreate
 from fastapi.security import OAuth2PasswordRequestForm
@@ -61,28 +63,56 @@ def login(
         select(User).where(User.email == form_data.username)
     ).scalar_one_or_none()
 
+    # User does not exist
     if not existing_user:
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password"
         )
 
-    if not verify_password(
-        form_data.password,
-        existing_user.hashed_password
+    # Check if account is currently locked
+    if (
+        existing_user.locked_until
+        and existing_user.locked_until > datetime.utcnow()
     ):
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password"
         )
 
+    # Check password
+    if not verify_password(
+        form_data.password,
+        existing_user.hashed_password
+    ):
+        existing_user.failed_attempts += 1
+
+        # Lock account after 5 failed attempts
+        if existing_user.failed_attempts >= 5:
+            existing_user.locked_until = (
+                datetime.utcnow() + timedelta(minutes=15)
+            )
+
+        db.commit()
+
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+
+    # Successful login
+    existing_user.failed_attempts = 0
+    existing_user.locked_until = None
+
+    db.commit()
+
     access_token = create_access_token(
-    data={"sub": existing_user.email}
-)
+        data={"sub": existing_user.email}
+    )
 
     return {
-    "access_token": access_token,
-    "token_type": "bearer"
+        "access_token": access_token,
+        "token_type": "bearer"
     }
 
 @router.get("/profile")
