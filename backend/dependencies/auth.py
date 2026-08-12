@@ -8,12 +8,13 @@ from database.database import get_db
 from models.user import User
 
 from utils.jwt_handler import verify_access_token
-
 from services.token_blacklist import is_blacklisted
+
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login"
 )
+
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
@@ -32,16 +33,23 @@ def get_current_user(
             status_code=401,
             detail="Invalid or expired token"
         )
-    email = payload["sub"]
+
+    email = payload.get("sub")
+
+    if not email:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token"
+        )
 
     existing_user = db.execute(
-    select(User).where(User.email == email)
+        select(User).where(User.email == email)
     ).scalar_one_or_none()
 
     if existing_user is None:
         raise HTTPException(
-        status_code=401,
-        detail="User not found"
-        ) 
+            status_code=401,
+            detail="User not found"
+        )
 
     return existing_user
