@@ -21,6 +21,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(
 def create_access_token(data: dict):
     to_encode = data.copy()
 
+    if "sub" not in to_encode:
+        raise ValueError("Token subject (sub) is required")
+
     expire = datetime.utcnow() + timedelta(
         minutes=ACCESS_TOKEN_EXPIRE_MINUTES
     )

@@ -1016,7 +1016,7 @@ Implemented and tested secure file access and downloading. The backend now ensur
 
 ---
 
-# Day 12 - Login Security & Account Lockout
+ #Day 12 - Login Security & Account Lockout
 
 ## 🎯 Objective
 
@@ -1120,3 +1120,272 @@ Successful authentication should reset failed-attempt state.
 Security features should be tested through both the API and database.
 📌 Summary
 Implemented a temporary account lockout system that locks users for 15 minutes after 5 failed login attempts. Added the required database fields, created and applied an Alembic migration, and successfully tested the complete lockout and reset lifecycle.
+
+
+----
+
+# Day 13 - JWT Security Hardening & Environment Configuration
+
+## 🎯 Objective
+
+Improve the security of the JWT authentication system by moving sensitive configuration into environment variables, validating JWT claims safely, and ensuring access tokens always identify a user.
+
+## 🧠 Concepts Learned
+
+### 🔐 Environment-Based JWT Configuration
+
+Sensitive JWT configuration should not be hard-coded inside Python source code.
+
+The project now loads:
+
+- `JWT_SECRET_KEY`
+- `JWT_ALGORITHM`
+- `ACCESS_TOKEN_EXPIRE_MINUTES`
+
+from the `.env` file.
+
+The application also checks that the JWT secret exists before starting.
+
+```python
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+
+if not SECRET_KEY:
+    raise RuntimeError("JWT_SECRET_KEY is not set")
+````
+
+### 🔑 JWT Secret Key
+
+The `SECRET_KEY` is used to digitally sign JWTs.
+
+It should:
+
+* Be long and random
+* Never be hard-coded in source code
+* Never be committed to Git
+* Be stored securely as an environment variable
+
+### 🧾 JWT Claims
+
+The project uses two important JWT claims:
+
+* `sub` → identifies the user
+* `exp` → defines when the token expires
+
+The token automatically receives an expiration time when it is created.
+
+### 🛡️ Required `sub` Claim
+
+Access tokens must identify the user they belong to.
+
+The token creation function now checks:
+
+```python
+if "sub" not in to_encode:
+    raise ValueError("Token subject (sub) is required")
+```
+
+This prevents the application from accidentally creating a token that cannot identify a user.
+
+### 🔍 Safe JWT Validation
+
+During authentication, the application now safely retrieves the subject:
+
+```python
+email = payload.get("sub")
+
+if not email:
+    raise HTTPException(
+        status_code=401,
+        detail="Invalid token"
+    )
+```
+
+Using `.get()` prevents a missing `sub` claim from causing a `KeyError`.
+
+Instead, the API correctly returns:
+
+```text
+401 Unauthorized
+```
+
+## 🔄 Improved Authentication Flow
+
+```text
+User Login
+    │
+    ▼
+Verify Email & Password
+    │
+    ▼
+Create JWT
+    │
+    ├── Add sub
+    │
+    └── Add exp
+    │
+    ▼
+Send JWT to Client
+    │
+    ▼
+Client Sends Bearer Token
+    │
+    ▼
+Check Blacklist
+    │
+    ▼
+Verify JWT Signature & Expiration
+    │
+    ▼
+Check sub Claim
+    │
+    ├── Missing → 401
+    │
+    └── Present
+          │
+          ▼
+      Find User
+          │
+          ▼
+   Protected Route
+```
+
+## 🧪 Security Testing
+
+### Valid Token
+
+Normal login was tested successfully:
+
+```text
+POST /auth/login
+200 OK
+```
+
+The resulting token successfully accessed:
+
+```text
+GET /auth/profile
+200 OK
+```
+
+### Token Without `sub`
+
+A correctly signed JWT without a `sub` claim was generated for testing.
+
+The protected endpoint correctly returned:
+
+```json
+{
+    "detail": "Invalid token"
+}
+```
+
+with:
+
+```text
+401 Unauthorized
+```
+
+This confirmed that the application does not blindly trust the JWT payload.
+
+### Token Creation Without `sub`
+
+The following was tested:
+
+```python
+create_access_token({
+    "email": "test@example.com"
+})
+```
+
+The application correctly rejected it:
+
+```text
+ValueError: Token subject (sub) is required
+```
+
+This confirms that token creation also enforces the required user identity.
+
+## 💻 Commands Used
+
+```bash
+python -m py_compile utils/jwt_handler.py
+
+python -c "from utils.jwt_handler import create_access_token; create_access_token({'email':'test@example.com'})"
+
+git status
+
+git add backend/utils/jwt_handler.py
+
+git commit -m "Require JWT subject claim"
+
+git push
+```
+
+## 📁 Files Updated
+
+* `backend/utils/jwt_handler.py`
+* `backend/dependencies/auth.py`
+
+## ❌ Mistakes I Made
+
+* Initially hard-coded the JWT secret inside the Python source code.
+* Accidentally exposed a generated JWT secret and replaced it with a new secret.
+* Made indentation mistakes while modifying `dependencies/auth.py`.
+* Caused a `return outside function` `SyntaxError`.
+* Initially tried to test a custom JWT through Swagger's OAuth2 authorization dialog.
+* Learned to use `curl` when Swagger could not directly provide the required custom token for testing.
+
+## 💡 Interview Notes
+
+* JWTs are signed, not encrypted.
+* `sub` identifies the subject/user of the token.
+* `exp` defines token expiration.
+* Never hard-code production secrets in source code.
+* Environment variables are commonly used for sensitive configuration.
+* A valid JWT signature does not automatically mean every required claim exists.
+* Required JWT claims should be validated before using them.
+* Missing claims should result in controlled authentication errors rather than server crashes.
+* Authentication verifies who the user is.
+* Authorization determines what the authenticated user can access.
+* Protected endpoints should never blindly trust client-supplied identity information.
+
+## ⭐ Key Takeaways
+
+* 🔐 Keep JWT secrets outside source code.
+* 🔑 Use a strong random secret for signing tokens.
+* ⏳ Always include token expiration.
+* 👤 Require `sub` when creating access tokens.
+* 🛡️ Validate required claims before using them.
+* ❌ Never assume a JWT payload contains every expected field.
+* 🚫 Invalid tokens should return `401 Unauthorized`, not crash the server.
+* 🧪 Security features should be tested with both valid and intentionally invalid tokens.
+* 🌱 Keep `.env` files out of Git.
+
+## 📌 Summary
+
+Hardened the JWT authentication system by moving JWT configuration into environment variables, replacing the placeholder secret with a random secret, requiring the `sub` claim during token creation, safely validating the `sub` claim during authentication, and testing both valid and malformed JWT scenarios.
+
+## 🪞 Reflection
+
+### What did I build today?
+
+I improved the security of my existing JWT authentication system by separating secrets from source code and enforcing required JWT claims.
+
+### What was the most important security lesson today?
+
+A token being correctly signed does not mean the application should blindly trust every value inside its payload. Required claims must still be validated.
+
+### What was the hardest bug today?
+
+Fixing the indentation error in `dependencies/auth.py` that caused:
+
+```text
+SyntaxError: 'return' outside function
+```
+
+### If someone asked me to explain today's work without looking at the code, could I?
+
+Yes. I can explain why JWT secrets should be stored in environment variables, what `sub` and `exp` represent, why required claims need validation, and how invalid JWTs are safely rejected.
+
+```
+```
