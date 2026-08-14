@@ -1389,3 +1389,389 @@ Yes. I can explain why JWT secrets should be stored in environment variables, wh
 
 ```
 ```
+````markdown
+## Day 14 — Authentication, Authorization & File Security
+
+### 1. Server-Side JWT Logout
+
+JWTs are normally stateless, so the server does not automatically know when a user logs out.
+
+This project uses a token blacklist to invalidate JWTs after logout.
+
+```python
+blacklisted_tokens = set()
+
+def blacklist_token(token: str):
+    blacklisted_tokens.add(token)
+
+def is_blacklisted(token: str):
+    return token in blacklisted_tokens
+````
+
+Logout adds the current token to the blacklist. Protected routes check the blacklist before accepting the token.
+
+The current blacklist is stored in memory, so it is cleared when the server restarts. A production implementation could store revoked tokens in PostgreSQL or Redis.
+
+---
+
+### 2. JWT Subject Validation
+
+The JWT contains a `sub` claim identifying the authenticated user.
+
+```python
+{
+    "sub": existing_user.email
+}
+```
+
+During validation:
+
+```python
+email = payload.get("sub")
+
+if not email:
+    raise HTTPException(
+        status_code=401,
+        detail="Invalid token"
+    )
+```
+
+The server therefore rejects tokens without a valid subject.
+
+---
+
+### 3. Authentication vs Authorization
+
+**Authentication** determines who the user is.
+
+**Authorization** determines what that authenticated user is allowed to access.
+
+In this project:
+
+```text
+JWT → Authentication → current_user
+current_user.id → Authorization → allowed resources
+```
+
+---
+
+### 4. Protected Profile
+
+The profile endpoint gets the user from the authenticated JWT:
+
+```python
+@router.get("/profile")
+def get_profile(
+    current_user: User = Depends(get_current_user)
+):
+    return {
+        "message": "Protected route accessed!",
+        "user": current_user.email
+    }
+```
+
+The client does not provide another user's ID or email.
+
+This prevents users from simply requesting another user's profile.
+
+---
+
+### 5. User-Specific File Listing
+
+The file listing endpoint filters files using the authenticated user's ID:
+
+```python
+files = (
+    db.query(File)
+    .filter(File.user_id == current_user.id)
+    .all()
+)
+```
+
+The filtering happens on the backend, not in the frontend.
+
+Therefore, users receive only files belonging to their account.
+
+---
+
+### 6. Object-Level Authorization / IDOR Protection
+
+Knowing another user's file ID must not give access to that file.
+
+The backend checks ownership:
+
+```python
+if file.user_id != current_user.id:
+    raise HTTPException(
+        status_code=403,
+        detail="You do not have permission to access this file"
+    )
+```
+
+Therefore:
+
+```text
+User A + User A's file → 200 OK
+User B + User A's file → 403 Forbidden
+```
+
+This protects against object-level authorization problems such as IDOR.
+
+---
+
+### 7. 403 vs 404
+
+The API distinguishes between an unauthorized existing file and a nonexistent file.
+
+If the file does not exist:
+
+```text
+404 Not Found
+```
+
+If the file exists but belongs to another user:
+
+```text
+403 Forbidden
+```
+
+This distinction is required by the assignment.
+
+---
+
+### 8. Secure File Downloads
+
+The download endpoint performs the ownership check before returning the physical file.
+
+```python
+if file.user_id != current_user.id:
+    raise HTTPException(
+        status_code=403,
+        detail="You do not have permission to access this file"
+    )
+```
+
+Only after authorization does the server return the file using `FileResponse`.
+
+This prevents users from downloading another user's files by knowing the file ID.
+
+---
+
+### 9. Password Hashing
+
+Passwords are hashed using bcrypt.
+
+```python
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto"
+)
+```
+
+Password hashing:
+
+```python
+def hash_password(password: str):
+    return pwd_context.hash(password)
+```
+
+Password verification:
+
+```python
+def verify_password(plain_password: str, hashed_password: str):
+    return pwd_context.verify(plain_password, hashed_password)
+```
+
+Passwords are therefore not stored in plaintext.
+
+Hashing is different from encryption because password hashing is intended to be one-way.
+
+---
+
+### 10. Generic Login Errors
+
+The login endpoint returns the same error for:
+
+* an email that does not exist
+* an existing email with the wrong password
+
+The response is:
+
+```json
+{
+    "detail": "Invalid email or password"
+}
+```
+
+This prevents attackers from using the login endpoint to discover registered email addresses.
+
+---
+
+### 11. Login Lockout
+
+The current login security policy is:
+
+```text
+5 failed attempts
+15-minute lockout
+```
+
+After repeated failed attempts, the account is locked.
+
+Even the correct password is rejected while the account is locked.
+
+After a successful login, the failed-attempt counter is reset.
+
+This helps protect against repeated password-guessing attempts.
+
+---
+
+### 12. Seeded Test Users
+
+The project contains three main test accounts:
+
+| Email                                                   | Password      | Files                        |
+| ------------------------------------------------------- | ------------- | ---------------------------- |
+| [securitytest@gmail.com](mailto:securitytest@gmail.com) | mypassword123 | resume.pdf, project.pdf      |
+| [user2@example.com](mailto:user2@example.com)           | Test@12345    | notes.pdf, assignment.pdf    |
+| [user3@example.com](mailto:user3@example.com)           | Test@12345    | certificate.pdf, project.zip |
+
+Each user has separate files so that cross-user access can be tested.
+
+---
+
+### 13. Security Tests Completed
+
+#### Logout
+
+```text
+Login → JWT
+↓
+Logout
+↓
+Same JWT used again
+↓
+401 Token has been blacklisted
+```
+
+**Result: PASS**
+
+#### Profile
+
+```text
+Authenticated user → GET /auth/profile → 200 OK
+```
+
+**Result: PASS**
+
+#### Own files
+
+```text
+Authenticated user → GET /files/ → 200 OK
+```
+
+**Result: PASS**
+
+#### Cross-user file access
+
+```text
+User 2 → GET /files/1
+```
+
+Result:
+
+```text
+403 Forbidden
+```
+
+**Result: PASS**
+
+#### Cross-user download
+
+```text
+User 2 → GET /files/1/download
+```
+
+Result:
+
+```text
+403 Forbidden
+```
+
+**Result: PASS**
+
+#### Nonexistent file
+
+```text
+GET /files/9999
+```
+
+Result:
+
+```text
+404 Not Found
+```
+
+**Result: PASS**
+
+#### Generic login error
+
+Nonexistent email and wrong password both return:
+
+```text
+401 Invalid email or password
+```
+
+**Result: PASS**
+
+#### Account lockout
+
+After 5 failed attempts, the correct password was rejected with:
+
+```text
+401 Unauthorized
+```
+
+**Result: PASS**
+
+---
+
+## Day 14 Status
+
+* [x] Registration
+* [x] Login
+* [x] Password hashing
+* [x] JWT authentication
+* [x] JWT subject validation
+* [x] Protected profile
+* [x] Server-side logout
+* [x] Generic login errors
+* [x] Login lockout
+* [x] 3+ seeded users
+* [x] User-specific file listing
+* [x] Individual file authorization
+* [x] Cross-user file access protection
+* [x] Cross-user download protection
+* [x] 403 vs 404 handling
+
+The core authentication and authorization requirements of the custom FastAPI + PostgreSQL backend have been implemented and manually tested.
+
+---
+
+## Next Phase
+
+The next major phase is the Appwrite implementation:
+
+1. Appwrite project setup
+2. Appwrite authentication
+3. Registration, login and logout
+4. User profile
+5. Database and file storage
+6. File ownership and access control
+7. 3+ test users
+8. Cross-user isolation testing
+9. Testing with the provided client
+10. README and final documentation
+
+```
+```
