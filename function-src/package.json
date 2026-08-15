@@ -1,0 +1,8 @@
+{
+  "name": "file-authorization",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "node-appwrite": "^21.0.0"
+  }
+}

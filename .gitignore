@@ -18,3 +18,8 @@ venv/
 # IDE
 .vscode/
 .idea/
+.env.appwrite
+node_modules/
+.env
+.env.*
+**/node_modules/

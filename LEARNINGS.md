@@ -1775,3 +1775,39 @@ The next major phase is the Appwrite implementation:
 
 ```
 ```
+
+
+---
+
+# Day 13 - Appwrite Authentication, Authorization & Secure File Downloads
+
+**📅 Date: 15 August 2026**
+
+## 🎯 Objective
+
+Migrate the authentication and secure file-access flow to Appwrite and implement private, ownership-based file downloads.
+
+The main goal was to make sure:
+
+- Users can authenticate using Appwrite.
+- Existing Appwrite sessions are handled correctly.
+- Users can access only their own files.
+- Private Storage files cannot be accessed directly by unauthorized users.
+- Authorized users receive temporary download access.
+- Different security cases return the correct HTTP status codes.
+
+---
+
+## 🧠 Concepts Learned
+
+### 🔐 Appwrite Authentication
+
+Appwrite Authentication manages user accounts and sessions.
+
+The frontend uses the Appwrite Account API to create an email/password session.
+
+```javascript
+account.createEmailPasswordSession({
+    email,
+    password
+});
