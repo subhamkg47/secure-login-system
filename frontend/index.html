@@ -28,7 +28,7 @@
 
 <fieldset>
   <legend>Custom backend settings (only used in "Custom REST backend" mode)</legend>
-  <label>Base URL <input id="baseUrl" value="http://localhost:3000" size="30"></label>
+  <label>Base URL <input id="baseUrl" value="http://127.0.0.1:8000" size="30"></label>
   <label><input type="checkbox" id="useCookies"> Backend uses cookie sessions (send credentials)</label>
 </fieldset>
 
@@ -134,10 +134,9 @@ async function doLogin() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password })
   });
-  // If the backend returns a JWT in the body, auto-fill the token field
-  if (result.body && result.body.token) {
-    document.getElementById('token').value = result.body.token;
-  }
+  if (result.body && result.body.access_token) {
+  document.getElementById('token').value = result.body.access_token;
+}
   log('POST /login', result);
 }
 
@@ -162,37 +161,117 @@ async function getFileById() {
   const result = await request('/files/' + id, { method: 'GET' });
   log('GET /files/' + id, result);
 }
-
 async function downloadFileById() {
   const id = document.getElementById('fileId').value;
 
+  const mode = document.querySelector(
+    'input[name="backendMode"]:checked'
+  )?.value;
+
   try {
-    const result = await request(
-      '/files/' + id + '/download',
+    // Mock/Appwrite return a JSON response containing a downloadUrl.
+    if (mode === 'mock' || mode === 'appwrite') {
+      const result = await request(
+        '/files/' + id + '/download',
+        {
+          method: 'GET'
+        }
+      );
+
+      log('GET /files/' + id + '/download', result);
+
+      if (result.status !== 200) {
+        return;
+      }
+
+      const downloadUrl = result.body?.downloadUrl;
+
+      if (!downloadUrl) {
+        log('GET /files/' + id + '/download', {
+          status: 500,
+          body: {
+            error: 'Download URL was not returned'
+          }
+        });
+        return;
+      }
+
+      window.location.href = downloadUrl;
+      return;
+    }
+
+    // Custom REST / FastAPI returns the actual file.
+    const headers = {};
+
+    if (!useCookies() && tokenVal()) {
+      headers['Authorization'] = 'Bearer ' + tokenVal();
+    }
+
+    // Get metadata first so we know the filename.
+    const fileResponse = await fetch(
+      base() + '/files/' + id,
       {
-        method: 'GET'
+        method: 'GET',
+        headers,
+        credentials: useCookies() ? 'include' : 'same-origin'
       }
     );
 
-    log('GET /files/' + id + '/download', result);
+    if (!fileResponse.ok) {
+      const body = await fileResponse.json().catch(() => ({}));
 
-    if (result.status !== 200) {
-      return;
-    }
-
-    const downloadUrl = result.body?.downloadUrl;
-
-    if (!downloadUrl) {
       log('GET /files/' + id + '/download', {
-        status: 500,
-        body: {
-          error: 'Download URL was not returned'
-        }
+        status: fileResponse.status,
+        body
       });
+
       return;
     }
 
-    window.location.href = downloadUrl;
+    const file = await fileResponse.json();
+
+    // Get the actual PDF.
+    const response = await fetch(
+      base() + '/files/' + id + '/download',
+      {
+        method: 'GET',
+        headers,
+        credentials: useCookies() ? 'include' : 'same-origin'
+      }
+    );
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+
+      log('GET /files/' + id + '/download', {
+        status: response.status,
+        body
+      });
+
+      return;
+    }
+
+    const blob = await response.blob();
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = file.fileName || file.filename || 'download';
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+
+    log('GET /files/' + id + '/download', {
+      status: 200,
+      body: {
+        message: 'File downloaded successfully',
+        filename: file.filename || 'download'
+      }
+    });
 
   } catch (error) {
     console.error('Download error:', error);
@@ -205,6 +284,7 @@ async function downloadFileById() {
     });
   }
 }
+
 </script>
 
 </body>

@@ -12,7 +12,7 @@ from services.token_blacklist import is_blacklisted
 
 
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/auth/login"
+    tokenUrl="/login"
 )
 
 

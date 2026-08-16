@@ -1,27 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
-from services.token_blacklist import blacklist_token
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
+from services.token_blacklist import blacklist_token
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from datetime import datetime, timedelta
 
 from dependencies.auth import get_current_user
-from schemas.user import UserCreate
-from fastapi.security import OAuth2PasswordRequestForm
+from schemas.user import UserCreate, UserLogin
 from database.database import get_db
 from models.user import User
 from utils.security import hash_password, verify_password
-from utils.jwt_handler import (
-    create_access_token,
-    verify_access_token
-)
+from utils.jwt_handler import create_access_token
 router = APIRouter(
-    prefix="/auth",
+    prefix="",
     tags=["Authentication"]
 )
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/auth/login"
+    tokenUrl="/login"
 )
 
 
@@ -56,11 +52,11 @@ def register(
 
 @router.post("/login")
 def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    user: UserLogin,
     db: Session = Depends(get_db)
 ):
     existing_user = db.execute(
-        select(User).where(User.email == form_data.username)
+        select(User).where(User.email == user.email)
     ).scalar_one_or_none()
 
     # User does not exist
@@ -82,7 +78,7 @@ def login(
 
     # Check password
     if not verify_password(
-        form_data.password,
+        user.password,
         existing_user.hashed_password
     ):
         existing_user.failed_attempts += 1
@@ -115,13 +111,20 @@ def login(
         "token_type": "bearer"
     }
 
-@router.get("/profile")
+@router.get("/me")
 def get_profile(
     current_user: User = Depends(get_current_user)
 ):
     return {
-        "message": "Protected route accessed!",
-        "user": current_user.email
+        "id": current_user.id,
+        "email": current_user.email,
+        "profile": {
+            "fullName": "",
+            "displayName": current_user.email.split("@")[0],
+            "bio": "",
+            "createdAt": current_user.created_at.isoformat() if current_user.created_at else None,
+            "role": "user"
+        }
     }
 
 @router.post("/logout")
