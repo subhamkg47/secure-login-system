@@ -6,11 +6,16 @@ __pycache__/
 # Virtual environment
 venv/
 .venv/
+**/venv/
 
 # Environment variables / secrets
 .env
 .env.*
 !.env.example
+!**/.env.example
+
+# Appwrite local configuration
+.env.appwrite
 
 # macOS
 .DS_Store
@@ -18,8 +23,7 @@ venv/
 # IDE
 .vscode/
 .idea/
-.env.appwrite
+
+# Node.js
 node_modules/
-.env
-.env.*
 **/node_modules/
